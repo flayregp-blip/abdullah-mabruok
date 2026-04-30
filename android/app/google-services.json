@@ -14,18 +14,38 @@
       },
       "oauth_client": [
         {
+          "client_id": "173318625887-g3c9mtp2lt6ns8hldbesfnche6oalncl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.retrytech.app.shortzz",
+            "certificate_hash": "5271695cde6b65dbce804e6ae4cce8f6094dd3c9"
+          }
+        },
+        {
           "client_id": "173318625887-smcg4io82bjqg3q66u8pcqb2ssbs7r9c.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyBo4H7XonwIdMJDycGYjNcGIfSgkQnzD5E"
+          "current_key": "AIzaSyBo4H7Xonw1dMJDycGYjNcGIfSgkQnzD5E"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "173318625887-smcg4io82bjqg3q66u8pcqb2ssbs7r9c.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "173318625887-n8e9ph14m74cnq92tdobobi98hia7ubp.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.retrytech.app.shortzz"
+              }
+            }
+          ]
         }
       }
     }
