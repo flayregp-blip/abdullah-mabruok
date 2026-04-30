@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "173318625887",
+    "project_id": "flayr-914e9",
+    "storage_bucket": "flayr-914e9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:173318625887:android:6ba75822f46d43414cd9ea",
+        "android_client_info": {
+          "package_name": "com.retrytech.app.shortzz"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBo4H7Xonw1dMJDycGYjNcGIfSgkQnzD5E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
