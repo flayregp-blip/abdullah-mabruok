@@ -1,0 +1,114 @@
+{
+  "project_info": {
+    "project_number": "287224857835",
+    "project_id": "shortzz-new",
+    "storage_bucket": "shortzz-new.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:287224857835:android:1caa8617289fb117ea864e",
+        "android_client_info": {
+          "package_name": "com.retrytech.app.shortzz"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "287224857835-8lhb0114tgtdo3tvt11610i135e1heja.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.retrytech.app.shortzz",
+            "certificate_hash": "976236211f3ebd74d4a57ecd51c3d7620b617179"
+          }
+        },
+        {
+          "client_id": "287224857835-0tat8op13jne7q8f7ng1rv0ricpbefep.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAb0AAY0VZqO4yvyEIPGNGb6eFktl3c8hk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "287224857835-0tat8op13jne7q8f7ng1rv0ricpbefep.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "287224857835-afnu1vijppfuq887rbr9poi278dvngut.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.retrytech.bubbly"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:287224857835:android:011bd08df5f78e82ea864e",
+        "android_client_info": {
+          "package_name": "com.retrytech.shortzz.apps"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "287224857835-5psvr16hlp9kmbuqvdf4md54c7cmipmc.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.retrytech.shortzz.apps",
+            "certificate_hash": "976236211f3ebd74d4a57ecd51c3d7620b617179"
+          }
+        },
+        {
+          "client_id": "287224857835-o4sj45to76cu5rr415c8ni2nmpoumd33.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.retrytech.shortzz.apps",
+            "certificate_hash": "ffac446a9bc38607f92ca923c1cda49a85b0fbee"
+          }
+        },
+        {
+          "client_id": "287224857835-ohete5hmef18if2q3n76c4m7o99017cv.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.retrytech.shortzz.apps",
+            "certificate_hash": "e54ccd0d5d1ed7d6ba064a7eef1d9ae05fed509b"
+          }
+        },
+        {
+          "client_id": "287224857835-0tat8op13jne7q8f7ng1rv0ricpbefep.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAb0AAY0VZqO4yvyEIPGNGb6eFktl3c8hk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "287224857835-0tat8op13jne7q8f7ng1rv0ricpbefep.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "287224857835-afnu1vijppfuq887rbr9poi278dvngut.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.retrytech.bubbly"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
