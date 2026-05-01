@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shortzz/common/controller/base_controller.dart';
 import 'package:shortzz/common/functions/debounce_action.dart';
-import 'package:shortzz/common/manager/firebase_notification_manager.dart';
+import 'package:shortzz/common/manager/notification_manager.dart';
 import 'package:shortzz/common/manager/logger.dart';
 import 'package:shortzz/common/manager/session_manager.dart';
 import 'package:shortzz/common/service/api/common_service.dart';
@@ -28,7 +28,7 @@ class AuthScreenController extends BaseController {
   @override
   void onInit() {
     CommonService.instance.fetchGlobalSettings();
-    FirebaseNotificationManager.instance;
+    NotificationManager.instance;
     super.onInit();
   }
 
@@ -163,7 +163,7 @@ class AuthScreenController extends BaseController {
       String? fullname,
       required LoginVia loginVia,
       String? password}) async {
-    String? deviceToken = await FirebaseNotificationManager.instance.getNotificationToken();
+      String? deviceToken = await NotificationManager.instance.getNotificationToken();
     if (deviceToken == null) return null;
 
     user.User? userData;
@@ -174,6 +174,10 @@ class AuthScreenController extends BaseController {
       case LoginVia.logInFakeUser:
         userData = await UserService.instance
             .logInFakeUser(identity: identity, loginMethod: loginMethod, deviceToken: deviceToken, password: password);
+    }
+
+    if (userData != null && userData.id != null) {
+      NotificationManager.instance.loginOneSignal(userData.id.toString());
     }
 
     Setting? setting = SessionManager.instance.getSettings();

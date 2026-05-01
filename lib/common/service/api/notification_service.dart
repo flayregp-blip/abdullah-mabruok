@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:shortzz/common/manager/firebase_notification_manager.dart';
+import 'package:shortzz/common/manager/notification_manager.dart';
 import 'package:shortzz/common/manager/logger.dart';
 import 'package:shortzz/common/manager/session_manager.dart';
 import 'package:shortzz/common/service/api/api_service.dart';

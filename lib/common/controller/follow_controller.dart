@@ -1,6 +1,6 @@
 import 'package:get/get.dart';
 import 'package:shortzz/common/controller/base_controller.dart';
-import 'package:shortzz/common/manager/firebase_notification_manager.dart';
+import 'package:shortzz/common/manager/notification_manager.dart';
 import 'package:shortzz/common/manager/logger.dart';
 import 'package:shortzz/common/manager/session_manager.dart';
 import 'package:shortzz/common/service/api/user_service.dart';
@@ -46,7 +46,7 @@ class FollowController extends BaseController {
             user.value?.isFollowing == true &&
             _user.notifyFollow == 1 &&
             _user.id != SessionManager.instance.getUserID()) {
-          FirebaseNotificationManager.instance.sendLocalisationNotification(
+          NotificationManager.instance.sendLocalisationNotification(
               LKey.notifyStartedFollowing,
               type: NotificationType.user,
               languageCode: _user.appLanguage,
@@ -68,7 +68,7 @@ class FollowController extends BaseController {
   Future<StatusModel> _followUser({required int userId}) async {
     StatusModel result = await UserService.instance.followUser(userId: userId);
     if (result.status == true) {
-      FirebaseNotificationManager.instance.subscribeToTopic(topic: '$userId');
+      NotificationManager.instance.subscribeToTopic(topic: '$userId');
     }
     return result;
   }
@@ -77,7 +77,7 @@ class FollowController extends BaseController {
     StatusModel result =
         await UserService.instance.unFollowUser(userId: userId);
     if (result.status == true) {
-      FirebaseNotificationManager.instance.unsubscribeToTopic(topic: '$userId');
+      NotificationManager.instance.unsubscribeToTopic(topic: '$userId');
     }
     return result;
   }

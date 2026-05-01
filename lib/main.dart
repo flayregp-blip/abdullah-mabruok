@@ -9,7 +9,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
-import 'package:shortzz/common/manager/firebase_notification_manager.dart';
+import 'package:shortzz/common/manager/notification_manager.dart';
 import 'package:shortzz/common/manager/logger.dart';
 import 'package:shortzz/common/manager/session_manager.dart';
 import 'package:shortzz/common/service/subscription/subscription_manager.dart';
@@ -24,8 +24,8 @@ import 'common/service/network_helper/network_helper.dart';
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   Loggers.success("Handling a background message: ${message.data}");
   await Firebase.initializeApp();
-  if (Platform.isIOS) {
-    FirebaseNotificationManager.instance.showNotification(message);
+    if (Platform.isIOS) {
+    NotificationManager.instance.showNotification(message);
   }
 }
 
@@ -38,9 +38,8 @@ Future<void> main() async {
     // Register background handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-    // Init OneSignal
-    OneSignal.initialize("3acddfc-e7c6-4504-b8a4-d73280111ef4");
-    await OneSignal.Notifications.requestPermission(true);
+    // Notification Manager handles both Firebase and OneSignal
+    NotificationManager.instance;
 
     await GetStorage.init('shortzz');
 

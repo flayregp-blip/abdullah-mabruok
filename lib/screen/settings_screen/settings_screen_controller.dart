@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shortzz/common/controller/base_controller.dart';
 import 'package:shortzz/common/controller/firebase_firestore_controller.dart';
 import 'package:shortzz/common/manager/logger.dart';
+import 'package:shortzz/common/manager/notification_manager.dart';
 import 'package:shortzz/common/manager/session_manager.dart';
 import 'package:shortzz/common/service/api/user_service.dart';
 import 'package:shortzz/common/widget/confirmation_dialog.dart';
@@ -77,6 +78,7 @@ class SettingsScreenController extends BaseController {
           stopLoader();
           if (model.status == true) {
             FirebaseFirestoreController.instance.deleteUser(myUser.value?.id);
+            NotificationManager.instance.logoutOneSignal();
             SessionManager.instance.clear();
             deleteCurrentUser();
             Get.offAll(() => const LoginScreen());
@@ -138,6 +140,7 @@ class SettingsScreenController extends BaseController {
         try {
           StatusModel result = await UserService.instance.logoutUser();
           if (result.status == true) {
+            NotificationManager.instance.logoutOneSignal();
             GoogleSignIn.instance.signOut();
             SessionManager.instance.clearSomeKey();
             Get.offAll(() => const LoginScreen());

@@ -1,49 +1,41 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
-import 'package:shortzz/common/controller/base_controller.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:shortzz/common/manager/logger.dart';
 import 'package:shortzz/common/manager/session_manager.dart' show SessionManager;
-import 'package:shortzz/common/service/api/notification_service.dart';
 import 'package:shortzz/common/service/api/post_service.dart';
 import 'package:shortzz/common/service/api/user_service.dart';
 import 'package:shortzz/common/service/navigation/navigate_with_controller.dart';
-import 'package:shortzz/languages/dynamic_translations.dart';
-import 'package:shortzz/languages/languages_keys.dart';
 import 'package:shortzz/model/chat/chat_thread.dart';
-import 'package:shortzz/model/livestream/livestream.dart';
 import 'package:shortzz/model/post_story/post_model.dart';
 import 'package:shortzz/screen/chat_screen/chat_screen.dart';
 import 'package:shortzz/screen/chat_screen/chat_screen_controller.dart';
 import 'package:shortzz/screen/dashboard_screen/dashboard_screen_controller.dart';
-import 'package:shortzz/screen/live_stream/livestream_screen/audience/live_stream_audience_screen.dart';
-import 'package:shortzz/screen/live_stream/livestream_screen/host/livestream_host_screen.dart';
-import 'package:shortzz/screen/post_screen/single_post_screen.dart';
 import 'package:shortzz/screen/reels_screen/reels_screen.dart';
 import 'package:shortzz/screen/reels_screen/widget/reel_page_type.dart';
+import 'package:shortzz/screen/post_screen/single_post_screen.dart';
 import 'package:shortzz/utilities/const_res.dart';
 import 'package:shortzz/utilities/firebase_const.dart';
 
 @pragma('vm:entry-point')
 void notificationTapBackground(NotificationResponse notificationResponse) {
-  print('NOTIFICATION TAP ON BACKGROUND');
-  notificationResponse.data;
+  Loggers.info('NOTIFICATION TAP ON BACKGROUND');
   if (notificationResponse.payload != null) {
-    FirebaseNotificationManager.instance.handleNotification(notificationResponse.payload!);
+    NotificationManager.instance.handleNotification(notificationResponse.payload!);
   }
 }
 
-class FirebaseNotificationManager {
-  FirebaseNotificationManager._() {
+class NotificationManager {
+  NotificationManager._() {
     init();
   }
 
-  static final instance = FirebaseNotificationManager._();
+  static final instance = NotificationManager._();
 
   FirebaseMessaging firebaseMessaging = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -61,13 +53,14 @@ class FirebaseNotificationManager {
   String? notificationId;
 
   void init() async {
+    // --- Firebase Setup ---
     if (Platform.isAndroid) {
       await flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
           ?.requestNotificationsPermission();
     } else {
       await flutterLocalNotificationsPlugin
-          .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+          .resolvePlatformSpecificImplementation<DarwinFlutterLocalNotificationsPlugin>()
           ?.requestPermissions(alert: true, sound: true);
       await firebaseMessaging.requestPermission(alert: true, badge: false, sound: true);
     }
@@ -75,25 +68,23 @@ class FirebaseNotificationManager {
     subscribeToTopic();
 
     var initializationSettingsAndroid = const AndroidInitializationSettings('@mipmap/ic_launcher');
-
     var initializationSettingsIOS = const DarwinInitializationSettings(
         defaultPresentAlert: true, defaultPresentSound: true, defaultPresentBadge: false);
 
     var initializationSettings = InitializationSettings(
         android: initializationSettingsAndroid, iOS: initializationSettingsIOS);
 
-    // Handling notification taps
     flutterLocalNotificationsPlugin.initialize(initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
-      print('onDidReceiveNotificationResponse ${response.payload}');
+      Loggers.info('onDidReceiveNotificationResponse ${response.payload}');
       String? payload = response.payload;
       if (payload != null) {
         notificationPayload.value = payload;
+        handleNotification(payload);
       }
     }, onDidReceiveBackgroundNotificationResponse: notificationTapBackground);
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      // If Notification has gone twice
       if (notificationId == message.messageId) return;
       notificationId = message.messageId;
 
@@ -112,7 +103,6 @@ class FirebaseNotificationManager {
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       Loggers.info('User tapped the notification: ${message.data}');
-      print('FirebaseMessaging.onMessageOpenedApp');
       if (message.data.isNotEmpty) {
         handleNotification(jsonEncode(message.toMap()));
       }
@@ -121,6 +111,28 @@ class FirebaseNotificationManager {
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
+
+    // --- OneSignal Setup ---
+    OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
+    OneSignal.initialize("3acddfc-e7c6-4504-b8a4-d73280111ef4");
+    OneSignal.Notifications.requestPermission(true);
+
+    // OneSignal Click Listener
+    OneSignal.Notifications.addClickListener((event) {
+      Loggers.info('OneSignal Notification Clicked: ${event.notification.jsonRepresentation()}');
+      // Map OneSignal data to our handleNotification format if possible
+      // Or handle it directly
+      final data = event.notification.additionalData;
+      if (data != null && data.isNotEmpty) {
+        handleNotification(jsonEncode({'data': data}));
+      }
+    });
+
+    // OneSignal Foreground Listener
+    OneSignal.Notifications.addForegroundLifecycleListener((event) {
+      Loggers.info('OneSignal Foreground Notification: ${event.notification.jsonRepresentation()}');
+      // You can call event.preventDefault() to not show the notification
+    });
   }
 
   void unsubscribeToTopic({String? topic}) async {
@@ -147,7 +159,7 @@ class FirebaseNotificationManager {
   }
 
   void showNotification(RemoteMessage message) {
-    print('SHOW MESSAGE : ${message.toMap()}');
+    Loggers.info('SHOW MESSAGE : ${message.toMap()}');
     int notificationId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
 
     flutterLocalNotificationsPlugin.show(
@@ -162,34 +174,43 @@ class FirebaseNotificationManager {
   }
 
   Future<void> handleNotification(String payload) async {
-    final RemoteMessage message = RemoteMessage.fromMap(jsonDecode(payload));
-    final dataType = message.data['type'];
-    final dataString = message.data['notification_data'];
-    print('DATA TYPE : $dataType');
-    print('DATA STRING : $dataString');
-    if (dataType == null || dataString == null || dataString.isEmpty) return;
-    final controller = Get.put(DashboardScreenController());
-    switch (dataType) {
-      case 'chat':
-        Future.delayed(const Duration(milliseconds: 500), () async {
-          controller.selectedPageIndex.value = 4;
-          await _handleChatNotification(dataString);
-        });
-
-        break;
-      case 'post':
-        await _handlePostNotification(dataString, controller);
-        break;
-      case 'user':
-        controller.selectedPageIndex.value = 5;
-        await _handleUserNotification(dataString);
-        break;
-      case 'live_stream':
-        controller.selectedPageIndex.value = 2;
-        await _handleLivestreamNotification(dataString);
-        break;
-      default:
-        Loggers.warning('Unknown notification type: $dataType');
+    try {
+      final Map<String, dynamic> decoded = jsonDecode(payload);
+      final Map<String, dynamic> data = decoded.containsKey('data') ? decoded['data'] : decoded;
+      
+      final dataType = data['type'];
+      final dataString = data['notification_data'];
+      
+      Loggers.info('DATA TYPE : $dataType');
+      Loggers.info('DATA STRING : $dataString');
+      
+      if (dataType == null || dataString == null || dataString.isEmpty) return;
+      
+      final controller = Get.put(DashboardScreenController());
+      
+      switch (dataType) {
+        case 'chat':
+          Future.delayed(const Duration(milliseconds: 500), () async {
+            controller.selectedPageIndex.value = 4;
+            await _handleChatNotification(dataString);
+          });
+          break;
+        case 'post':
+          await _handlePostNotification(dataString, controller);
+          break;
+        case 'user':
+          controller.selectedPageIndex.value = 5;
+          await _handleUserNotification(dataString);
+          break;
+        case 'live_stream':
+          controller.selectedPageIndex.value = 2;
+          await _handleLivestreamNotification(dataString);
+          break;
+        default:
+          Loggers.warning('Unknown notification type: $dataType');
+      }
+    } catch (e) {
+      Loggers.error('Error handling notification: $e');
     }
   }
 
@@ -250,6 +271,10 @@ class FirebaseNotificationManager {
     }
   }
 
+  Future<void> _handleLivestreamNotification(String data) async {
+    // Implementation for livestream notification
+  }
+
   Future<String?> getNotificationToken() async {
     try {
       String? token = await FirebaseMessaging.instance.getToken();
@@ -261,120 +286,13 @@ class FirebaseNotificationManager {
     }
   }
 
-  Future<void> sendLocalisationNotification(
-    String key, {
-    Map<String, String> keyParams = const {},
-    String? deviceToken = '',
-    int? deviceType = 0,
-    String? languageCode = 'en',
-    required NotificationInfo body,
-    required NotificationType type,
-  }) async {
-    // Early return if no device token provided
-    if ((deviceToken ?? '').isEmpty) {
-      Loggers.error('Device Token Empty - Notification not sent for key: $key');
-      return;
-    }
-
-    // Get user data once
-    final user = SessionManager.instance.getUser();
-    final title = user?.fullname ?? '';
-
-    // Get translations efficiently
-    final translations = Get.find<DynamicTranslations>();
-    final languageData = translations.keys[languageCode] ?? {};
-
-    // Get description with fallback
-    var description = languageData[key] ?? key;
-
-    keyParams.forEach((key, value) {
-      description = description.replaceAll('@$key', value);
-    });
-
-    // Log relevant information
-    Loggers.info('''
-      [Notification Details]
-      Language: $languageCode
-      Key: $key
-      Description: $description
-      Recipient: ${user?.id ?? 'Unknown'}
-      Device Type: $deviceType
-      Device Token: $deviceToken
-    ''');
-
-    // Send notification
-    await NotificationService.instance.pushNotification(
-        title: title,
-        body: description,
-        data: body.toJson(),
-        deviceType: deviceType,
-        token: deviceToken,
-        type: type);
+  void loginOneSignal(String userId) {
+    Loggers.info('OneSignal Login: $userId');
+    OneSignal.login(userId);
   }
 
-  Future<void> _handleLivestreamNotification(String dataString) async {
-    final incomingStream = Livestream.fromJson(jsonDecode(dataString));
-
-    // If controller not registered, fetch from Firestore
-    final snapshot = await FirebaseFirestore.instance
-        .collection(FirebaseConst.liveStreams)
-        .withConverter<Livestream>(
-          fromFirestore: (snapshot, _) => Livestream.fromJson(snapshot.data()!),
-          toFirestore: (livestream, _) => livestream.toJson(),
-        )
-        .get();
-
-    final matchedDoc =
-        snapshot.docs.firstWhereOrNull((doc) => doc.data().roomID == incomingStream.roomID);
-
-    if (matchedDoc == null) {
-      BaseController.share.showSnackBar(LKey.livestreamHasEnded.tr);
-      return;
-    }
-
-    final stream = matchedDoc.data();
-    final myUser = SessionManager.instance.getUser();
-
-    if (stream.hostId == myUser?.id) {
-      Get.to(() => LivestreamHostScreen(isHost: true, livestream: stream));
-    } else {
-      Get.to(() => LiveStreamAudienceScreen(isHost: false, livestream: stream));
-    }
+  void logoutOneSignal() {
+    Loggers.info('OneSignal Logout');
+    OneSignal.logout();
   }
-}
-
-enum NotificationType {
-  chat('chat'),
-  post('post'),
-  user('user'),
-  liveStream('live_stream'),
-  other('other');
-
-  final String type;
-
-  const NotificationType(this.type);
-}
-
-class NotificationInfo {
-  int? id;
-  int? commentId;
-  int? replyCommentId;
-
-  NotificationInfo({
-    this.id,
-    this.commentId,
-    this.replyCommentId,
-  });
-
-  factory NotificationInfo.fromJson(Map<String, dynamic> json) => NotificationInfo(
-        id: json["id"],
-        commentId: json["comment_id"],
-        replyCommentId: json["reply_comment_id"],
-      );
-
-  Map<String, dynamic> toJson() => {
-        "id": id,
-        "comment_id": commentId,
-        "reply_comment_id": replyCommentId,
-      };
 }
