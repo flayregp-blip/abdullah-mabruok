@@ -36,6 +36,11 @@ class MessageScreenController extends BaseController {
 
   Future<void> _listenToUserChatsAndRequests() async {
     isLoading.value = true;
+    
+    // FIX: Clear lists before starting listener to avoid duplicates on re-init
+    chatsUsers.clear();
+    requestsUsers.clear();
+
     db
         .collection(FirebaseConst.users)
         .doc(myUser?.id.toString())
@@ -45,59 +50,66 @@ class MessageScreenController extends BaseController {
             toFirestore: (ChatThread value, options) => value.toJson())
         .where(FirebaseConst.isDeleted, isEqualTo: false)
         .orderBy(FirebaseConst.id, descending: true)
-        // FIX: includeMetadataChanges=false to avoid showing cached/pending data
         .snapshots(includeMetadataChanges: false)
         .listen((event) {
       isLoading.value = false;
+      
       for (var change in event.docChanges) {
         final ChatThread? chatUser = change.doc.data();
         if (chatUser == null) continue;
 
         switch (change.type) {
           case DocumentChangeType.added:
-            if (chatUser.userId != -1) {
-              firebaseFirestoreController.fetchUserIfNeeded(chatUser.userId ?? -1);
-            }
-            if (chatUser.chatType == ChatType.approved) {
-              chatsUsers.add(chatUser);
-            } else {
-              requestsUsers.add(chatUser);
-            }
-
+            _addOrUpdateChat(chatUser);
             break;
           case DocumentChangeType.modified:
-            // Remove the user from their current list
-            final userId = chatUser.userId;
-            chatsUsers.removeWhere((user) => user.userId == userId);
-            requestsUsers.removeWhere((user) => user.userId == userId);
-
-            (chatUser.chatType == ChatType.approved ? chatsUsers : requestsUsers).add(chatUser);
+            _addOrUpdateChat(chatUser);
+            break;
           case DocumentChangeType.removed:
-            // Remove the user from their current list
-            final userId = chatUser.userId;
-            chatsUsers.removeWhere((user) => user.userId == userId);
-            requestsUsers.removeWhere((user) => user.userId == userId);
+            _removeChat(chatUser);
             break;
         }
       }
-
-      chatsUsers.sort(
-        (a, b) {
-          return (b.id ?? '0').compareTo(a.id ?? '0');
-        },
-      );
-      requestsUsers.sort(
-        (a, b) {
-          return (b.id ?? '0').compareTo(a.id ?? '0');
-        },
-      );
-
-      // Loggers.success('CHAT USER: ${chatsUsers.length}');
-      // Loggers.success('REQUEST USER: ${requestsUsers.length}');
+      
+      _sortLists();
+      
     }, onError: (error) {
       Loggers.error('Message list listener error: $error');
       isLoading.value = false;
     });
+  }
+
+  void _addOrUpdateChat(ChatThread chatUser) {
+    final userId = chatUser.userId;
+    if (userId != -1) {
+      firebaseFirestoreController.fetchUserIfNeeded(userId ?? -1);
+    }
+
+    // Remove if exists to handle updates/moves between categories
+    chatsUsers.removeWhere((user) => user.userId == userId);
+    requestsUsers.removeWhere((user) => user.userId == userId);
+
+    if (chatUser.chatType == ChatType.approved) {
+      chatsUsers.add(chatUser);
+    } else {
+      requestsUsers.add(chatUser);
+    }
+  }
+
+  void _removeChat(ChatThread chatUser) {
+    final userId = chatUser.userId;
+    chatsUsers.removeWhere((user) => user.userId == userId);
+    requestsUsers.removeWhere((user) => user.userId == userId);
+  }
+
+  void _sortLists() {
+    // FIX: Sort by ID (timestamp) descending to show newest messages first
+    chatsUsers.sort((a, b) => (b.id ?? '0').compareTo(a.id ?? '0'));
+    requestsUsers.sort((a, b) => (b.id ?? '0').compareTo(a.id ?? '0'));
+    
+    // Trigger UI update
+    chatsUsers.refresh();
+    requestsUsers.refresh();
   }
 
   void onLongPress(ChatThread chatConversation) {
