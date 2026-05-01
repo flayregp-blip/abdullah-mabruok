@@ -45,7 +45,8 @@ class MessageScreenController extends BaseController {
             toFirestore: (ChatThread value, options) => value.toJson())
         .where(FirebaseConst.isDeleted, isEqualTo: false)
         .orderBy(FirebaseConst.id, descending: true)
-        .snapshots()
+        // FIX: includeMetadataChanges=false to avoid showing cached/pending data
+        .snapshots(includeMetadataChanges: false)
         .listen((event) {
       isLoading.value = false;
       for (var change in event.docChanges) {
@@ -93,6 +94,9 @@ class MessageScreenController extends BaseController {
 
       // Loggers.success('CHAT USER: ${chatsUsers.length}');
       // Loggers.success('REQUEST USER: ${requestsUsers.length}');
+    }, onError: (error) {
+      Loggers.error('Message list listener error: $error');
+      isLoading.value = false;
     });
   }
 

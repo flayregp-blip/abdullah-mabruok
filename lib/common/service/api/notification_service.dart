@@ -59,14 +59,32 @@ class NotificationService {
       String? authorizationToken}) async {
     bool isIOS = deviceType == 1;
 
+    // FIX: Build proper FCM v1 payload
     Map<String, dynamic> messageData = {
       "apns": {
-        "headers": {"apns-priority": "10"},
+        "headers": {
+          "apns-priority": "10",
+          "apns-push-type": "alert",
+        },
         "payload": {
           "aps": {
             "sound": "default",
             "content-available": 1,
+            "alert": {
+              "title": title,
+              "body": body,
+            },
+            "badge": 1,
           }
+        }
+      },
+      "android": {
+        "priority": "high",
+        "notification": {
+          "sound": "default",
+          "notification_priority": "PRIORITY_MAX",
+          "visibility": "PUBLIC",
+          "channel_id": "shortzz_high_importance",
         }
       },
       "data": {
@@ -76,32 +94,46 @@ class NotificationService {
         if (data != null) "notification_data": jsonEncode(data)
       }
     };
+
+    // FIX: Always include notification for Android (required for background delivery)
     if (!isIOS) {
       messageData["notification"] = {"body": body, "title": title};
     }
-    if (token != null) {
+
+    if (token != null && token.isNotEmpty) {
       messageData["token"] = token;
     }
-    if (topic != null) {
+    if (topic != null && topic.isNotEmpty) {
       messageData["topic"] = topic;
     }
 
     Map<String, dynamic> inputData = {"message": messageData};
 
     var prettyString = const JsonEncoder.withIndent('  ').convert(inputData);
-    Loggers.info(prettyString);
+    Loggers.info('📤 Sending notification:\n$prettyString');
+
     try {
-      http.Response response = await http.post(
-          Uri.parse(WebService.notification.pushNotificationToSingleUser),
-          headers: {
-            Params.apikey: apiKey,
-            Params.authToken:
-                authorizationToken ?? SessionManager.instance.getAuthToken()
-          },
-          body: json.encode(inputData));
-      Loggers.success('Notification response : ${response.body}');
+      http.Response response = await http
+          .post(
+            Uri.parse(WebService.notification.pushNotificationToSingleUser),
+            headers: {
+              Params.apikey: apiKey,
+              Params.authToken:
+                  authorizationToken ?? SessionManager.instance.getAuthToken(),
+              'Content-Type': 'application/json',
+            },
+            body: json.encode(inputData),
+          )
+          .timeout(const Duration(seconds: 15)); // FIX: Add timeout
+
+      Loggers.success('✅ Notification response [${response.statusCode}]: ${response.body}');
+
+      // FIX: Log error details if notification failed
+      if (response.statusCode != 200) {
+        Loggers.error('❌ Notification failed with status ${response.statusCode}: ${response.body}');
+      }
     } catch (e) {
-      Loggers.error(e);
+      Loggers.error('❌ Notification send error: $e');
     }
   }
 }

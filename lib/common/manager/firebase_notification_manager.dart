@@ -49,35 +49,59 @@ class FirebaseNotificationManager {
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
   RxString notificationPayload = ''.obs;
+
+  // FIX: Added description to channel for better visibility
   AndroidNotificationChannel channel = const AndroidNotificationChannel(
-      'shortzz', // id
-      'Shortzz', // title
+      'shortzz_high_importance', // id - changed to avoid conflicts
+      'Shortzz Notifications', // title
+      description: 'Shortzz app notifications including messages and activity',
       playSound: true,
       enableLights: true,
       enableVibration: true,
-      showBadge: false,
+      showBadge: true, // FIX: Enable badge count
       importance: Importance.max);
 
   String? notificationId;
 
   void init() async {
+    // FIX: Request permissions properly for both platforms
     if (Platform.isAndroid) {
       await flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
           ?.requestNotificationsPermission();
     } else {
+      // FIX: Request FCM permission first on iOS
+      NotificationSettings settings = await firebaseMessaging.requestPermission(
+        alert: true,
+        announcement: false,
+        badge: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        sound: true,
+      );
+      Loggers.info('iOS Notification permission: ${settings.authorizationStatus}');
+
       await flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
-          ?.requestPermissions(alert: true, sound: true);
-      await firebaseMessaging.requestPermission(alert: true, badge: false, sound: true);
+          ?.requestPermissions(alert: true, sound: true, badge: true);
     }
+
+    // FIX: Set foreground notification presentation options for iOS
+    await firebaseMessaging.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
 
     subscribeToTopic();
 
     var initializationSettingsAndroid = const AndroidInitializationSettings('@mipmap/ic_launcher');
 
     var initializationSettingsIOS = const DarwinInitializationSettings(
-        defaultPresentAlert: true, defaultPresentSound: true, defaultPresentBadge: false);
+        defaultPresentAlert: true,
+        defaultPresentSound: true,
+        defaultPresentBadge: true); // FIX: Enable badge on iOS
 
     var initializationSettings = InitializationSettings(
         android: initializationSettingsAndroid, iOS: initializationSettingsIOS);
@@ -92,17 +116,32 @@ class FirebaseNotificationManager {
       }
     }, onDidReceiveBackgroundNotificationResponse: notificationTapBackground);
 
+    // FIX: Handle foreground messages properly
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      // If Notification has gone twice
-      if (notificationId == message.messageId) return;
+      Loggers.info('📨 Foreground message received: ${message.messageId}');
+
+      // If Notification has gone twice - deduplicate
+      if (notificationId == message.messageId) {
+        Loggers.warning('Duplicate notification ignored: ${message.messageId}');
+        return;
+      }
       notificationId = message.messageId;
 
       String data = message.data['notification_data'] ?? '';
 
       if (message.data['type'] == NotificationType.chat.type) {
-        ChatThread conversationUser = ChatThread.fromJson(jsonDecode(data));
-        if (conversationUser.conversationId == ChatScreenController.chatId) {
-          return;
+        // FIX: Only suppress notification if user is CURRENTLY in that specific chat
+        if (data.isNotEmpty) {
+          try {
+            ChatThread conversationUser = ChatThread.fromJson(jsonDecode(data));
+            if (conversationUser.conversationId == ChatScreenController.chatId &&
+                ChatScreenController.chatId.isNotEmpty) {
+              Loggers.info('Suppressing chat notification - user is in chat: ${ChatScreenController.chatId}');
+              return;
+            }
+          } catch (e) {
+            Loggers.error('Error parsing chat notification data: $e');
+          }
         }
       } else {
         SessionManager.instance.setNotifyCount(1);
@@ -118,9 +157,12 @@ class FirebaseNotificationManager {
       }
     });
 
+    // FIX: Create notification channel with high importance
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
+
+    Loggers.success('✅ FirebaseNotificationManager initialized successfully');
   }
 
   void unsubscribeToTopic({String? topic}) async {
@@ -150,14 +192,26 @@ class FirebaseNotificationManager {
     print('SHOW MESSAGE : ${message.toMap()}');
     int notificationId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
 
+    // FIX: Use the correct channel ID that was created
     flutterLocalNotificationsPlugin.show(
         notificationId,
         (message.data['title']) ?? message.notification?.title,
         (message.data['body'] as String?) ?? message.notification?.body,
         NotificationDetails(
             iOS: const DarwinNotificationDetails(
-                presentSound: true, presentAlert: true, presentBadge: false),
-            android: AndroidNotificationDetails(channel.id, channel.name)),
+                presentSound: true,
+                presentAlert: true,
+                presentBadge: true), // FIX: Enable badge on iOS
+            android: AndroidNotificationDetails(
+              channel.id,
+              channel.name,
+              channelDescription: channel.description,
+              importance: Importance.max,
+              priority: Priority.high,
+              showWhen: true,
+              enableVibration: true,
+              playSound: true,
+            )),
         payload: jsonEncode(message.toMap()));
   }
 
@@ -252,6 +306,17 @@ class FirebaseNotificationManager {
 
   Future<String?> getNotificationToken() async {
     try {
+      // FIX: Ensure APNS token is available on iOS before getting FCM token
+      if (Platform.isIOS) {
+        String? apnsToken = await firebaseMessaging.getAPNSToken();
+        Loggers.info('APNS Token: $apnsToken');
+        if (apnsToken == null) {
+          // Wait a bit and retry
+          await Future.delayed(const Duration(seconds: 2));
+          apnsToken = await firebaseMessaging.getAPNSToken();
+          Loggers.info('APNS Token (retry): $apnsToken');
+        }
+      }
       String? token = await FirebaseMessaging.instance.getToken();
       Loggers.info('DeviceToken $token');
       return token;
@@ -286,7 +351,6 @@ class FirebaseNotificationManager {
 
     // Get description with fallback
     var description = languageData[key] ?? key;
-
     keyParams.forEach((key, value) {
       description = description.replaceAll('@$key', value);
     });

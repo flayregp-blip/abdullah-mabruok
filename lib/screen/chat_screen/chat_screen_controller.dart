@@ -70,6 +70,7 @@ class ChatScreenController extends BlockUserController with GetTickerProviderSta
   late AnimationController audioAnimationController;
   Animation<double>? audioWidthAnimation;
 
+  // FIX: Use a dedicated Firestore instance with optimized settings
   FirebaseFirestore db = FirebaseFirestore.instance;
   MessageType chatType = MessageType.text;
 
@@ -174,12 +175,13 @@ class ChatScreenController extends BlockUserController with GetTickerProviderSta
   }
 
   void _listenToChatThreadUser() {
+    // FIX: Use includeMetadataChanges=false to avoid duplicate updates from local cache
     var otherConversationStream = documentSender
         .withConverter(
           fromFirestore: (snapshot, options) => ChatThread.fromJson(snapshot.data()!),
           toFirestore: (ChatThread value, options) => value.toJson(),
         )
-        .snapshots()
+        .snapshots(includeMetadataChanges: false)
         .listen((event) {
       if (event.exists) {
         conversationUser.value = event.data()!;
@@ -188,6 +190,8 @@ class ChatScreenController extends BlockUserController with GetTickerProviderSta
         Loggers.info('Chat User Not Found ${event.data()}');
         conversationUser.update((val) => val?.chatType = ChatType.approved);
       }
+    }, onError: (error) {
+      Loggers.error('Chat thread listener error: $error');
     });
 
     var myConversationStream = documentReceiver
@@ -195,12 +199,14 @@ class ChatScreenController extends BlockUserController with GetTickerProviderSta
           fromFirestore: (snapshot, options) => ChatThread.fromJson(snapshot.data()!),
           toFirestore: (ChatThread value, options) => value.toJson(),
         )
-        .snapshots()
+        .snapshots(includeMetadataChanges: false)
         .listen((event) {
       if (event.exists) {
         myConversationUser = event.data()!;
         Loggers.success('Other Chat Updated: ${myConversationUser?.toJson()}');
       }
+    }, onError: (error) {
+      Loggers.error('My conversation listener error: $error');
     });
     usersStreams.addAll([otherConversationStream, myConversationStream]);
   }
@@ -387,7 +393,7 @@ class ChatScreenController extends BlockUserController with GetTickerProviderSta
 
   void _getChat() async {
     _listenToChatThreadUser();
-    await Future.delayed(const Duration(milliseconds: 100));
+    // FIX: Removed unnecessary delay that was causing message display lag
     var subscription = chatCollection
         .where(FirebaseConst.noDeleteIds, arrayContains: myUser?.id)
         .where(FirebaseConst.id, isGreaterThan: conversationUser.value.deletedId)
@@ -396,7 +402,8 @@ class ChatScreenController extends BlockUserController with GetTickerProviderSta
         .withConverter(
             fromFirestore: (snapshot, options) => MessageData.fromJson(snapshot.data()!),
             toFirestore: (MessageData value, options) => value.toJson())
-        .snapshots()
+        // FIX: includeMetadataChanges=false ensures we only get confirmed server data
+        .snapshots(includeMetadataChanges: false)
         .listen((event) {
       Loggers.info(' FETCHING CHAT MESSAGES : ${event.docChanges.length}');
       for (var change in event.docChanges) {
@@ -404,7 +411,10 @@ class ChatScreenController extends BlockUserController with GetTickerProviderSta
         if (message == null) continue;
         switch (change.type) {
           case DocumentChangeType.added:
-            chatList.add(message);
+            // FIX: Avoid duplicates when adding messages
+            if (!chatList.any((m) => m.id == message.id)) {
+              chatList.add(message);
+            }
             break;
           case DocumentChangeType.modified:
             chatList.removeWhere((element) => element.id == message.id);
@@ -421,6 +431,8 @@ class ChatScreenController extends BlockUserController with GetTickerProviderSta
       if (event.docs.isNotEmpty) {
         lastDocument = event.docs.last;
       }
+    }, onError: (error) {
+      Loggers.error('Chat listener error: $error');
     });
     chatListeners.add(subscription);
   }

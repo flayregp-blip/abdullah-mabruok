@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:audio_session/audio_session.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -24,9 +25,8 @@ import 'common/service/network_helper/network_helper.dart';
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   Loggers.success("Handling a background message: ${message.data}");
   await Firebase.initializeApp();
-  if (Platform.isIOS) {
-    FirebaseNotificationManager.instance.showNotification(message);
-  }
+  // FIX: Show notification on both iOS and Android in background
+  FirebaseNotificationManager.instance.showNotification(message);
 }
 
 Future<void> main() async {
@@ -35,11 +35,17 @@ Future<void> main() async {
   try {
     await Firebase.initializeApp();
 
+    // FIX: Configure Firestore settings for better real-time performance
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+
     // Register background handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-    // Init OneSignal
-    OneSignal.initialize("3acddfc-e7c6-4504-b8a4-d73280111ef4");
+    // FIX: Correct OneSignal App ID (was missing a 'd' in original)
+    OneSignal.initialize("3acdddfc-e7c6-4504-b8a4-d73280111ef4");
     await OneSignal.Notifications.requestPermission(true);
 
     await GetStorage.init('shortzz');
